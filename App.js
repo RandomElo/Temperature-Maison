@@ -22,7 +22,8 @@ import * as Network from 'expo-network';
 import { registerWidgetTaskHandler } from 'react-native-android-widget';
 import { widgetTaskHandler } from './widgets/tachePieceWidget.js';
 
-import { fetchData, getURL } from './api.js';
+import { fetchData, fetchWeek, getURL } from './api.js';
+import WeekChart from './WeekChart.js';
 /*
   ---------------------------------------------------------------------------
   Station météo — version React Native / Expo (fichier unique)
@@ -350,6 +351,9 @@ export default function App() {
     const scrollRef = useRef(null);
     const [tooltip, setTooltip] = useState(null);
     const [exterior, setExterior] = useState(null);
+    const [mode, setMode] = useState('jour'); // 'jour' | '7j'
+    const [week, setWeek] = useState(null);
+    const [weekLoading, setWeekLoading] = useState(false);
 
     useEffect(() => {
         if (!tooltip) return;
@@ -393,6 +397,17 @@ export default function App() {
         intervalRef.current = setInterval(refresh, REFRESH_MS);
         return () => clearInterval(intervalRef.current);
     }, [refresh]);
+
+    // Données des 7 derniers jours, chargées seulement dans ce mode
+    useEffect(() => {
+        if (mode !== '7j') return;
+        let annule = false;
+        setWeekLoading(true);
+        fetchWeek(selectedDate).then((w) => {
+            if (!annule) { setWeek(w); setWeekLoading(false); }
+        });
+        return () => { annule = true; };
+    }, [mode, selectedDate, lastSync]);
 
     const goPrevDay = () => {
         const d = new Date(selectedDate);
@@ -569,34 +584,90 @@ export default function App() {
                             </View>
 
                             <View style={[styles.chartBox, { backgroundColor: colors.surface }]}>
+                                <View style={[styles.modeRow, { backgroundColor: colors.surface2 }]}>
+                                    {[['jour', 'Jour'], ['7j', '7 jours']].map(([k, label]) => (
+                                        <TouchableOpacity
+                                            key={k}
+                                            onPress={() => { setTooltip(null); setMode(k); }}
+                                            style={[styles.modeBtn, mode === k && { backgroundColor: colors.surface }]}
+                                        >
+                                            <Text style={{ color: mode === k ? colors.ink : colors.muted, fontWeight: '600', fontSize: 13 }}>{label}</Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+
+                                {mode === '7j' ? (
+                                    <>
+                                        <Text style={{ color: colors.temp, fontSize: 11, fontWeight: '600', marginBottom: 6 }}>
+                                            Température par heure (°C)
+                                        </Text>
+                                        {weekLoading && !week ? (
+                                            <ActivityIndicator style={{ paddingVertical: 60 }} color={colors.muted} />
+                                        ) : (
+                                            <WeekChart
+                                                series={weekSeries(week, selectedRoom)}
+                                                width={screenWidth - 60}
+                                                colors={colors}
+                                            />
+                                        )}
+                                    </>
+                                ) : (
+                                    <>
                                 <View>
-                                    <Text style={{ color: colors.temp, fontSize: 11, fontWeight: '600', marginBottom: 4 }}>
-                                        Température (°C)
+                                        <Text style={{ color: colors.temp, fontSize: 11, fontWeight: '600', marginBottom: 4 }}>
+                                            Température (°C)
+                                        </Text>
+                                    </View>
+                                    <View style={{
+                                        position: "relative",
+                                        left: -12.5
+                                    }}>
+                                        <ChartKit type="temperature" selectedRoom={selectedRoom} colors={colors} screenWidth={screenWidth} tooltip={tooltip} setTooltip={setTooltip} />
+                                    </View>
+
+
+                                    <Text style={{ color: colors.hum, fontSize: 11, fontWeight: '600', marginTop: 15, marginBottom: 4 }}>
+                                        Humidité (%)
                                     </Text>
-                                </View>
-                                <View style={{
-                                    position: "relative",
-                                    left: -12.5
-                                }}>
-                                    <ChartKit type="temperature" selectedRoom={selectedRoom} colors={colors} screenWidth={screenWidth} tooltip={tooltip} setTooltip={setTooltip} />
-                                </View>
-
-
-                                <Text style={{ color: colors.hum, fontSize: 11, fontWeight: '600', marginTop: 15, marginBottom: 4 }}>
-                                    Humidité (%)
-                                </Text>
-                                <View style={{
-                                    position: "relative",
-                                    left: -12.5
-                                }}>
-                                    <ChartKit type="humidity" selectedRoom={selectedRoom} colors={colors} screenWidth={screenWidth} tooltip={tooltip} setTooltip={setTooltip} />
-                                </View>
+                                    <View style={{
+                                        position: "relative",
+                                        left: -12.5
+                                    }}>
+                                        <ChartKit type="humidity" selectedRoom={selectedRoom} colors={colors} screenWidth={screenWidth} tooltip={tooltip} setTooltip={setTooltip} />
+                                    </View>
+                                    </>
+                                )}
                             </View>
                         </View>
                     )}
                 </ScrollView>
             </SafeAreaView ></>
     );
+}
+
+// Moyenne de température par heure (24 valeurs, null si aucune mesure)
+function hourlyMeans(history) {
+    const sums = Array(24).fill(0), counts = Array(24).fill(0);
+    history.forEach((h) => {
+        if (h.temperature == null) return;
+        const hr = new Date(h.timestamp).getHours();
+        sums[hr] += h.temperature;
+        counts[hr] += 1;
+    });
+    return sums.map((sm, i) => (counts[i] ? sm / counts[i] : null));
+}
+
+// Une série par jour pour la pièce choisie
+function weekSeries(week, room) {
+    if (!week || !room) return [];
+    return week.map(({ date, data }) => {
+        let history = [];
+        if (data) {
+            const src = room.id === 'exterieur' ? data.exterior : data.rooms.find((r) => r.name === room.name);
+            history = src ? src.history : [];
+        }
+        return { date, values: hourlyMeans(history) };
+    });
 }
 
 // Sous-échantillonne les labels d'heure pour ne pas surcharger l'axe X
@@ -800,6 +871,18 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         marginTop: 2,
         fontSize: 20
+    },
+    modeRow: {
+        flexDirection: 'row',
+        borderRadius: 10,
+        padding: 3,
+        marginBottom: 12
+    },
+    modeBtn: {
+        flex: 1,
+        alignItems: 'center',
+        paddingVertical: 7,
+        borderRadius: 8
     },
     chartBox: {
         borderRadius: 18,
