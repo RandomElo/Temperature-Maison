@@ -41,3 +41,32 @@ example
 # generated native folders
 /ios
 /android
+.env
+# secrets
+.env
+.env.*
+!.env.example
+
+# node
+build/
+coverage/
+.vite/
+*.log
+
+# python
+venv/
+.venv/
+__pycache__/
+
+# bases locales
+*.sqlite
+*.sqlite3
+*.db
+
+# éditeurs et système
+.idea/
+Thumbs.db
+
+# audits et configuration Claude
+audits/
+.claude/

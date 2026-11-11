@@ -1,56 +1,44 @@
-# Welcome to your Expo app 👋
+# Température Maison
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Application Android qui affiche la température, l'humidité et la pression de chaque pièce de la maison, ainsi que la météo extérieure. Elle lit les mesures d'une API locale alimentée par des capteurs.
 
-## Get started
+## Fonctionnalités
 
-1. Install dependencies
+- Cartes de résumé : moyenne des pièces en température et en humidité, température extérieure.
+- Une carte par pièce avec les valeurs actuelles et la pression.
+- Historique d'une journée, au choix : navigation jour par jour ou sélecteur de date.
+- Graphiques de température et d'humidité. Un appui sur le graphique affiche la valeur et l'heure du point le plus proche.
+- Comparaison des 7 derniers jours : une courbe par jour sur le même graphique, un point par heure. Un appui sur une heure donne la valeur de chaque jour.
+- Widget Android « Température pièce », au choix de la pièce, actualisé en arrière-plan.
+- Thème clair ou sombre selon le système, actualisation automatique toutes les 5 minutes.
 
-   ```bash
-   npm install
-   ```
+## Technologies
 
-2. Start the app
+Expo (React Native), react-native-chart-kit et react-native-svg pour les graphiques, react-native-android-widget pour le widget.
 
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+## Installation
 
 ```bash
-npm run reset-project
+npm install
+cp .env.example .env
+npx expo start
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+La variable `EXPO_PUBLIC_OPENWEATHER_URL` du fichier `.env` doit être renseignée (voir `.env.example`).
 
-### Other setup steps
+## Construire l'APK
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+```bash
+npx expo prebuild --platform android --clean
+cd android
+ANDROID_HOME=~/Android/Sdk bash ./gradlew assembleRelease
+```
 
-## Learn more
+L'APK est produit dans `android/app/build/outputs/apk/release/app-release.apk`.
 
-To learn more about developing your project with Expo, look at the following resources:
+## Structure
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+- `App.js` : écran principal, cartes et graphiques.
+- `WeekChart.js` : graphique de comparaison sur 7 jours.
+- `api.js` : accès à l'API des capteurs.
+- `widgets/` : widget Android et sa tâche d'actualisation.
